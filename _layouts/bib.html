@@ -150,6 +150,12 @@
     {% if entry.video %}
       <a href="{{ entry.video }}" style="padding-top: 0em; padding-bottom: 0px;">Video</a>
     {% endif %}
+    
+    {% if entry.note == "video" and entry.video %}
+    <div class="video-embed" style="margin-top: 10px;">
+    <iframe width="360" height="203" src="{{ entry.video }}" frameborder="0" allowfullscreen></iframe>
+    </div>
+    {% endif %}
 
     {% if entry.zhihu %}
       <a href="{{ entry.zhihu }}" style="padding-top: 0em; padding-bottom: 0px;">Zhihu</a>

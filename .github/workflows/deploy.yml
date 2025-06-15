@@ -15,50 +15,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.0.2'
-          bundler-cache: false  # we'll manage bundler cache manually
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0.2'
 
-      - name: Install system dependencies (for RMagick)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libmagickwand-dev imagemagick
+    - name: Install system dependencies (for rmagick and jekyll)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libmagickwand-dev imagemagick
 
-      - name: Cache bundle
-        uses: actions/cache@v4
-        with:
-          path: vendor/bundle
-          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-gems-
+    - name: Install latest bundler
+      run: |
+        gem uninstall -i $(gem env gemdir) bundler -a -x || true
+        gem install bundler
 
-      - name: Install dependencies
-        run: |
-          gem install bundler
-          bundle config set path 'vendor/bundle'
-          bundle install --jobs 4 --retry 3
-          npm install -g @mermaid-js/mermaid-cli
+    - name: Enable bundler cache
+      uses: actions/cache@v4
+      with:
+        path: vendor/bundle
+        key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-gems-
 
-      - name: Setup deploy options
-        id: setup
-        run: |
-          echo "DEPLOY_BRANCH=gh-pages" >> "$GITHUB_OUTPUT"
-          if [[ "${GITHUB_REF}" == refs/pull/*/merge ]]; then
-            echo "SRC_BRANCH=${GITHUB_HEAD_REF}" >> "$GITHUB_OUTPUT"
-            echo "NO_PUSH=--no-push" >> "$GITHUB_OUTPUT"
-          else
-            echo "SRC_BRANCH=${GITHUB_REF#refs/heads/}" >> "$GITHUB_OUTPUT"
-          fi
-          git config --global user.name "GitHub Action"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    - name: Install dependencies
+      run: |
+        bundle config set path vendor/bundle
+        bundle install --jobs 4 --retry 3
+        npm install -g @mermaid-js/mermaid-cli
 
-      - name: Deploy website
-        run: |
-          yes | bin/deploy --verbose ${{ steps.setup.outputs.NO_PUSH }} \
-                           --src ${{ steps.setup.outputs.SRC_BRANCH }} \
-                           --deploy ${{ steps.setup.outputs.DEPLOY_BRANCH }}
+    - name: Setup deploy options
+      id: setup
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        if [[ ${GITHUB_REF} == refs/pull/*/merge ]]; then
+          echo "SRC_BRANCH=${GITHUB_HEAD_REF}" >> $GITHUB_OUTPUT
+          echo "NO_PUSH=--no-push" >> $GITHUB_OUTPUT
+        elif [[ ${GITHUB_REF} == refs/heads/* ]]; then
+          echo "SRC_BRANCH=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+        fi
+        echo "DEPLOY_BRANCH=gh-pages" >> $GITHUB_OUTPUT
+
+    - name: Deploy website 
+      run: |
+        yes | bin/deploy --verbose ${{ steps.setup.outputs.NO_PUSH }} \
+                         --src ${{ steps.setup.outputs.SRC_BRANCH }} \
+                         --deploy ${{ steps.setup.outputs.DEPLOY_BRANCH }}
+      env:
+        RUBYOPT: "-r bundler/setup"
